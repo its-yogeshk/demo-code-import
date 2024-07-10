@@ -1,0 +1,160 @@
+image: docker:19.03.8
+
+before_script:
+    - echo PREDIFINED=true >> .env
+    - echo TIME_SLOT_FORMAT_24HR=false >> .env
+    - echo USE_SENDINBLUE_EMAIL=true >> .env
+    - echo USE_SENDINBLUE_OTP=true >> .env
+    - echo OFFSET_TIMEZONE=+5.5 >> .env
+
+    - echo COUNTRY_CODE=+91 >> .env
+
+    - echo API_URL_STAGING=${API_URL_STAGING} >> .env
+    - echo API_URL_PRODUCTION=${API_URL_PRODUCTION} >> .env
+
+    - echo WEB_URL_STAGING=${WEB_URL_STAGING} >> .env
+    - echo WEB_URL_PRODUCTION=${WEB_URL_PRODUCTION} >> .env
+
+    - echo SECRET=${SECRET} >> .env
+    - echo STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY} >> .env
+    - echo STRIPE_END_POINT_SECRET_WEBHOOK=${STRIPE_END_POINT_SECRET_WEBHOOK_PRODUCTION} >> .env
+
+    - echo MONGO_DB_URL_PRODUCTION="${MONGO_DB_URL_PRODUCTION}" >> .env
+    - echo MONGO_DB_URL_STAGING="${MONGO_DB_URL_STAGING}" >> .env
+
+    - echo IMAGEKIT_URL=${IMAGEKIT_URL} >> .env
+    - echo IMAGEKIT_PRIVATE_KEY=${IMAGEKIT_PRIVATE_KEY} >> .env
+    - echo IMAGEKIT_PUBLIC_KEY=${IMAGEKIT_PUBLIC_KEY} >> .env
+
+    - echo ONE_SIGNAL_APP_ID_USER=${ONE_SIGNAL_APP_ID_USER} >> .env
+    - echo ONE_SIGNAL_SECRET_KEY_USER=${ONE_SIGNAL_SECRET_KEY_USER} >> .env
+    - echo ONE_SIGNAL_APP_ID_DELIVERY=${ONE_SIGNAL_APP_ID_DELIVERY} >> .env
+    - echo ONE_SIGNAL_SECRET_KEY_DELIVERY=${ONE_SIGNAL_SECRET_KEY_DELIVERY} >> .env
+
+    - echo SENDINBLUE_HOST_NAME=${SENDINBLUE_HOST_NAME} >> .env
+    - echo SENDINBLUE_USER=${SENDINBLUE_USER} >> .env
+    # - echo SENDINBLUE_FROM=${SENDINBLUE_FROM} >> .env
+    - echo SENDINBLUE_PASSWORD=${SENDINBLUE_PASSWORD} >> .env
+    - echo SENDINBLUE_URL_FOR_OTP=${SENDINBLUE_URL_FOR_OTP} >> .env
+    - echo SENDINBLUE_API_KEY_FOR_OTP=${SENDINBLUE_API_KEY_FOR_OTP} >> .env
+
+    - echo SENDGRID_KEY=${SENDGRID_KEY} >> .env
+    - echo SENDGRID_FROM=${SENDGRID_FROM} >> .env
+    
+    - echo TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID} >> .env
+    - echo TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN} >> .env
+    - echo TWILIO_SID=${TWILIO_SID} >> .env
+    - echo APP_SIGNAL_NAME="Readymade Grocery" >> .env
+    - echo APP_SIGNAL_API_KEY=${APP_SIGNAL_API_KEY} >> .env
+
+    - echo RAZOR_KEY_ID=${RAZOR_KEY_ID} >> .env
+    - echo RAZOR_SECRET_KEY=${RAZOR_SECRET_KEY} >> .env
+
+stages:
+    - docker
+    - deploy 
+
+docker_staging:
+    stage: docker
+    services:
+      - docker:19.03.8-dind
+    script:
+        - echo STRIPE_END_POINT_SECRET_WEBHOOK=${STRIPE_END_POINT_SECRET_WEBHOOK_STAGING} >> .env
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        - docker pull $CI_REGISTRY_IMAGE:testing || true
+        - docker build --tag $CI_REGISTRY_IMAGE:testing .
+        - docker push $CI_REGISTRY_IMAGE:testing
+    only:
+        - testing 
+
+docker_features:
+    stage: docker
+    services:
+        - docker:19.03.8-dind
+    script:
+        - echo MONGO_DB_URL_STAGING="${MONGO_DB_URL_FEATURES}" >> .env
+        - echo STRIPE_END_POINT_SECRET_WEBHOOK=${STRIPE_END_POINT_SECRET_WEBHOOK_STAGING} >> .env
+        - echo API_URL_STAGING=${API_URL_FEATURES} >> .env
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        - docker pull $CI_REGISTRY_IMAGE:features || true
+        - docker build --tag $CI_REGISTRY_IMAGE:features .
+        - docker push $CI_REGISTRY_IMAGE:features
+    only:
+        - features 
+
+docker_production:
+    stage: docker
+    services:
+        - docker:19.03.8-dind
+    script:
+        - echo STRIPE_END_POINT_SECRET_WEBHOOK=${STRIPE_END_POINT_SECRET_WEBHOOK_PRODUCTION} >> .env
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        - docker pull $CI_REGISTRY_IMAGE:production || true
+        - docker build --tag $CI_REGISTRY_IMAGE:production .
+        - docker push $CI_REGISTRY_IMAGE:production
+    only:
+        - master       
+
+deploy_staging:
+    stage: deploy
+    image: alpine
+    environment: staging
+    script:
+        - apk update
+        - apk add --update --no-cache openssh sshpass
+        - mkdir grocery-staging-api
+        - chmod +x grocery-staging-api
+        - mv docker-compose-staging.yml grocery-staging-api/docker-compose.yml
+        - echo $SERVER_SSH_KEY | base64 -d > my_ssh
+        - chmod 400 my_ssh
+        - sshpass scp -i my_ssh -o stricthostkeychecking=no -r grocery-staging-api ubuntu@${SERVER_IP}:~/
+        - sshpass ssh -i my_ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} "cd ~/grocery-staging-api;sudo docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY};sudo docker-compose down;sudo docker image rm ${CI_REGISTRY_IMAGE}:testing;sudo docker-compose up -d;"
+    only:
+        - testing
+
+deploy_features:
+    stage: deploy
+    image: alpine
+    environment: features
+    script:
+        - apk update
+        - apk add --update --no-cache openssh sshpass
+        - mkdir grocery-features-api
+        - chmod +x grocery-features-api
+        - mv docker-compose-features.yml grocery-features-api/docker-compose.yml
+        - echo $SERVER_SSH_KEY | base64 -d > my_ssh
+        - chmod 400 my_ssh
+        - sshpass scp -i my_ssh -o stricthostkeychecking=no -r grocery-features-api ubuntu@${SERVER_IP}:~/
+        - sshpass ssh -i my_ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} "cd ~/grocery-features-api;sudo docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY};sudo docker-compose down;sudo docker image rm ${CI_REGISTRY_IMAGE}:features;sudo docker-compose up -d;"
+    only:
+        - features      
+
+deploy_production:
+    stage: deploy
+    image: alpine
+    environment: production
+    script:
+        - apk update
+        - apk add --update --no-cache openssh sshpass
+        - mkdir grocery-production-api
+        - chmod +x grocery-production-api
+        - mv docker-compose-production.yml grocery-production-api/docker-compose.yml
+        - echo $SERVER_SSH_KEY | base64 -d > my_ssh
+        - chmod 400 my_ssh
+        - sshpass scp -i my_ssh -o stricthostkeychecking=no -r grocery-production-api ubuntu@${SERVER_IP}:~/
+        - sshpass ssh -i my_ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} "cd ~/grocery-production-api;sudo docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY};sudo docker-compose down;sudo docker image rm ${CI_REGISTRY_IMAGE}:production;sudo docker-compose up -d;"
+    only:
+        - master   
+        
+seeding:
+    stage: docker
+    image: node:12.13-alpine
+    environment: production
+    script:
+        - npm i
+        - npx ts-node mongodb-seeding.ts
+    only:
+        refs:
+            - seedings
+        variables:
+            - $SEEDING == "yes"

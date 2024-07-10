@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+  grocery_features_api:
+    image: registry.gitlab.com/ionicfirebaseapp/flutter/grocery-new/new-api:features
+    ports:
+        - "1001:1001"
+    restart: always
+    environment:
+        - NODE_ENV=staging
+        - PORT=1001

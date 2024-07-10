@@ -1,0 +1,12 @@
+version: '2'
+
+services:
+  grocery_staging_api:
+    image: ghcr.io/paiteq/readymade.grocery-api:testing
+    container_name: readymade-grocery-api-stg
+    ports:
+     - "4000:4000"
+    restart: always
+    environment:
+     - NODE_ENV=staging
+     - PORT=4000

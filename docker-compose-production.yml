@@ -1,0 +1,12 @@
+version: '2'
+
+services:
+  grocery_production_api:
+    image: ghcr.io/paiteq/readymade.grocery-api:production
+    container_name: readymade-grocery-api-prod
+    ports:
+     - "3000:3000"
+    restart: always
+    environment:
+     - NODE_ENV=production
+     - PORT=3000
