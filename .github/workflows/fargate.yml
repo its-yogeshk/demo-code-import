@@ -1,0 +1,84 @@
+name: readymade-grocery-stg
+on:
+  push:
+    branches:
+      - test
+ 
+env:
+ AWS_REGION: ap-south-1
+ ECR_REPOSITORY: demo-node-app
+ IMAGE_NAME: ${{ github.repository }}
+ username: ${{ github.actor }}
+ password: ${{ secrets.TOKEN }}
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name:  build and push docker image
+        env: 
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: staging
+        run: |
+          echo "PREDIFINED=true" >> .env  
+          echo "TIME_SLOT_FORMAT_24HR=false" >> .env
+          echo "USE_SENDINBLUE_EMAIL=true" >> .env
+          echo "USE_SENDINBLUE_OTP=true" >> .env
+          echo "OFFSET_TIMEZONE=+5.5" >> .env
+          echo "COUNTRY_CODE=+91" >> .env
+
+          echo "API_URL_STAGING=https://grocery-api-stg.ionicfirebaseapp.com" >> .env
+          echo "WEB_URL_STAGING=https://grocery-web-stg.ionicfirebaseapp.com" >> .env
+
+          echo "SECRET=xanthiumApproachingTranquilityBase >> .env
+          echo "STRIPE_SECRET_KEY=sk_test_51J2w7fSA0gw75vBrVQ6jo4hshxTme5jQZEDhE55GjZEeKYI4VoJe7eJrtlUTU3c5rGcBbqft5xPQgpwKj7CMKqeI00EaKVSFMU" >> .env
+          echo "STRIPE_END_POINT_SECRET_WEBHOOK=whsec_C1mTMHr0NeWknDnFAWRw71bga8pzCBQY" >> .env
+
+          echo "MONGO_DB_URL_STAGING=mongodb+srv://pietech:H1G0vJRJMcPKDpFM@cluster0.sjyzl.mongodb.net/grocery_readymade_test?retryWrites=true&w=majority" >> .env
+
+          echo "IMAGEKIT_URL=https://ik.imagekit.io/kplhvthqbi/" >> .env
+          echo "IMAGEKIT_PRIVATE_KEY=private_FIlXCAXkbkp6E2dQA899Pn3IHcU=" >> .env
+          echo "IMAGEKIT_PUBLIC_KEY=public_7qctglfeG3oJXV/OTHqpEbSnQDk=" >> .env
+
+          echo "ONE_SIGNAL_APP_ID_USER=29168c73-be94-4cf2-b0e1-41f5ff80aadc" >> .env
+          echo "ONE_SIGNAL_SECRET_KEY_USER=MjcxMWQzNTQtMGE3OS00NjgxLThiODEtZTg1ZjA0OTYxZWMz" >> .env
+          echo "ONE_SIGNAL_APP_ID_DELIVERY=6692e413-2b8e-43e8-ae2d-a223d48171ca}" >> .env
+          echo "ONE_SIGNAL_SECRET_KEY_DELIVERY=ZWRiYzlkMjItNjU2Ny00ZWUzLWFlZTMtZDFlZjA3MDM3MjQw" >> .env
+
+          echo "SENDINBLUE_HOST_NAME=smtp-relay.sendinblue.com" >> .env
+          echo "SENDINBLUE_USER=ionicfirebaseapp@gmail.com" >> .env
+          echo "SENDINBLUE_PASSWORD=BYUF8Rj63C0dz5kV" >> .env
+          echo "SENDINBLUE_URL_FOR_OTP=https://api.sendinblue.com/v3/transactionalSMS/sms" >> .env
+          echo "SENDINBLUE_API_KEY_FOR_OTP=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" >> .env
+
+          echo "SENDGRID_KEY=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" >> .env
+          echo "SENDGRID_FROM=ionicfirebaseapp12@gmail.com" >> .env
+
+          echo "TWILIO_ACCOUNT_SID=AC61e1b590e86083688b129c7125e31fbc" >> .env
+          echo "TWILIO_AUTH_TOKEN=ea0b114fc331164fa897ce895b1d5583" >> .env
+          echo "TWILIO_SID=VA36c11809275030839d7c03665c38128d" >> .env
+
+          echo "APP_SIGNAL_NAME=Readymade Grocery" >> .env
+          echo "APP_SIGNAL_API_KEY=ee8d92c0-f7f8-4dc0-8acc-7e6f876b120f" >> .env
+
+          echo "RAZOR_KEY_ID=rzp_test_jAT3flVB6oznwx" >> .env
+          echo "RAZOR_SECRET_KEY=pcuQ75UqaRUb4hQhDRJVQ5P4" >> .env
+
+          docker build --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+          
