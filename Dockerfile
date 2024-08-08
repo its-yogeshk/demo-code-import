@@ -18,7 +18,3 @@ RUN npm install
 RUN npm install typescript
 
 CMD ["npm", "run", "start:prod"]
-
-
-
-
